@@ -606,7 +606,10 @@ class VideoClip(Clip):
         hi, wi = img.shape[:2]
 
         # SET POSITION
-        pos = self.pos(ct)
+        try:
+            pos = self.pos(ct)
+        except TypeError:
+            pos = self.pos(self, ct)
 
         # preprocess short writings of the position
         if isinstance(pos, str):
