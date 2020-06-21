@@ -84,7 +84,7 @@ class FFMPEG_VideoReader:
             ]
         else:
             i_arg = ["-i", self.filename]
-
+        print("FFMPEG_BINARY path **************** ",FFMPEG_BINARY)
         cmd = (
             [FFMPEG_BINARY]
             + i_arg
