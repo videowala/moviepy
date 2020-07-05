@@ -14,7 +14,7 @@ try:
 except ImportError:
     DOTENV = None
 
-FFMPEG_BINARY = os.getenv("FFMPEG_BINARY", "/bin/ffmpeg")
+FFMPEG_BINARY = os.getenv("FFMPEG_BINARY", "/opt/bin/ffmpeg")
 IMAGEMAGICK_BINARY = os.getenv("IMAGEMAGICK_BINARY", "auto-detect")
 
 
