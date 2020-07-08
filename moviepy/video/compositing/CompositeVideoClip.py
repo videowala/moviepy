@@ -2,6 +2,7 @@ import numpy as np
 
 from moviepy.audio.AudioClip import CompositeAudioClip
 from moviepy.video.VideoClip import ColorClip, VideoClip
+from PIL import Image
 
 #  CompositeVideoClip
 
@@ -9,10 +10,10 @@ from moviepy.video.VideoClip import ColorClip, VideoClip
 class CompositeVideoClip(VideoClip):
 
     """ 
-    
+
     A VideoClip made of other videoclips displayed together. This is the
     base class for most compositions.
-    
+
     Parameters
     ----------
 
@@ -20,20 +21,14 @@ class CompositeVideoClip(VideoClip):
       The size (height x width) of the final clip.
 
     clips
-      A list of videoclips.
-
-      Clips with a higher ``layer`` attribute will be dislayed
-      on top of other clips in a lower layer.
-      If two or more clips share the same ``layer``,
-      then the one appearing latest in ``clips`` will be displayed
-      on top (i.e. it has the higher layer).
-
+      A list of videoclips. Each clip of the list will
+      be displayed below the clips appearing after it in the list.
       For each clip:
-       
+
       - The attribute ``pos`` determines where the clip is placed.
           See ``VideoClip.set_pos``
       - The mask of the clip determines which parts are visible.
-        
+
       Finally, if all the clips in the list have their ``duration``
       attribute set, then the duration of the composite video clip
       is computed automatically
@@ -47,7 +42,7 @@ class CompositeVideoClip(VideoClip):
       'background' on which all other clips are blitted. That first clip must
       have the same size as the final clip. If it has no transparency, the final
       clip will have no mask. 
-    
+
     The clip with the highest FPS will be the FPS of the composite clip.
 
     """
@@ -84,9 +79,6 @@ class CompositeVideoClip(VideoClip):
             self.bg = ColorClip(size, color=self.bg_color, ismask=ismask)
             self.created_bg = True
 
-        # order self.clips by layer
-        self.clips = sorted(self.clips, key=lambda clip: clip.layer)
-
         # compute duration
         ends = [c.end for c in self.clips]
         if None not in ends:
@@ -106,7 +98,6 @@ class CompositeVideoClip(VideoClip):
                 .set_position(c.pos)
                 .set_end(c.end)
                 .set_start(c.start, change_end=False)
-                .set_layer(c.layer)
                 for c in self.clips
             ]
 
@@ -114,16 +105,19 @@ class CompositeVideoClip(VideoClip):
                 maskclips, self.size, ismask=True, bg_color=0.0
             )
 
-        def make_frame(t):
-            """ The clips playing at time `t` are blitted over one
-                another. """
+    def make_frame(self, t):
+        f = self.bg.get_frame(t).astype("uint8")
+        im = Image.fromarray(f)
 
-            f = self.bg.get_frame(t)
-            for c in self.playing_clips(t):
-                f = c.blit_on(f, t)
-            return f
+        if self.bg.mask is not None:
+            f_mask = self.bg.mask.get_frame(t)
+            im_mask = Image.fromarray(255 * f_mask).convert("L")
+            im = im.putalpha(im_mask)
 
-        self.make_frame = make_frame
+        for c in self.playing_clips(t):
+            im = c.blit_on(im, t)
+
+        return np.array(im)
 
     def playing_clips(self, t=0):
         """ Returns a list of the clips in the composite clips that are
@@ -142,7 +136,6 @@ class CompositeVideoClip(VideoClip):
 
 
 def clips_array(array, rows_widths=None, cols_widths=None, bg_color=None):
-
     """
 
     rows_widths
@@ -152,7 +145,7 @@ def clips_array(array, rows_widths=None, cols_widths=None, bg_color=None):
       widths of the different colums in pixels. If None, is set automatically.
 
     cols_widths
-    
+
     bg_color
        Fill color for the masked and unfilled regions. Set to None for these
        regions to be transparent (will be slower).
