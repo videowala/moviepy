@@ -11,7 +11,6 @@ import tempfile
 import numpy as np
 import proglog
 from imageio import imread, imsave
-
 from moviepy.Clip import Clip
 from moviepy.config import IMAGEMAGICK_BINARY
 from moviepy.decorators import (
@@ -23,7 +22,6 @@ from moviepy.decorators import (
     outplace,
     requires_duration,
     use_clip_fps_by_default,
-    convert_path_to_string,
 )
 from moviepy.tools import extensions_dict, find_extension, subprocess_call
 from moviepy.video.io.ffmpeg_writer import ffmpeg_write_video
@@ -33,6 +31,7 @@ from moviepy.video.io.gif_writers import (
     write_gif_with_tempfiles,
 )
 from moviepy.video.tools.drawing import blit
+from PIL import Image
 
 
 class VideoClip(Clip):
@@ -80,11 +79,6 @@ class VideoClip(Clip):
     relative_pos
       See variable ``pos``.
 
-    layer
-      Indicates which clip is rendered on top when two clips overlap in
-      a CompositeVideoClip. The highest number is rendered on top.
-      Default is 0.
-
     """
 
     def __init__(
@@ -95,7 +89,6 @@ class VideoClip(Clip):
         self.audio = None
         self.pos = lambda t: (0, 0)
         self.relative_pos = False
-        self.layer = 0
         if make_frame:
             self.make_frame = make_frame
             self.size = self.get_frame(0).shape[:2][::-1]
@@ -539,11 +532,11 @@ class VideoClip(Clip):
         >>> newclip = clip.subapply(lambda c:c.speedx(0.5) , 3,6)
 
         """
-        left = self.subclip(0, ta) if ta else None
+        left = None if (ta == 0) else self.subclip(0, ta)
         center = self.subclip(ta, tb).fx(fx, **kwargs)
-        right = self.subclip(t_start=tb) if tb else None
+        right = None if (tb is None) else self.subclip(t_start=tb)
 
-        clips = [c for c in (left, center, right) if c]
+        clips = [c for c in [left, center, right] if c is not None]
 
         # beurk, have to find other solution
         from moviepy.video.compositing.concatenate import concatenate_videoclips
@@ -586,25 +579,36 @@ class VideoClip(Clip):
         on the given `picture`, the position of the clip being given
         by the clip's ``pos`` attribute. Meant for compositing.
         """
-        hf, wf = framesize = picture.shape[:2]
-
-        if self.ismask and picture.max():
-            return np.minimum(1, picture + self.blit_on(np.zeros(framesize), t))
+        hf, wf = picture.size
 
         ct = t - self.start  # clip time
 
         # GET IMAGE AND MASK IF ANY
+        img = self.get_frame(ct).astype("uint8")
+        im_img = Image.fromarray(img)
 
-        img = self.get_frame(ct)
-        mask = self.mask.get_frame(ct) if self.mask else None
+        if self.mask is not None:
+            mask = self.mask.get_frame(ct)
+            im_mask = Image.fromarray(255 * mask).convert("L")
 
-        if mask is not None and (
-            (img.shape[0] != mask.shape[0]) or (img.shape[1] != mask.shape[1])
-        ):
-            img = self.fill_array(img, mask.shape)
+            if im_img.size != im_mask.size:
+                bg_size = (
+                    max(im_img.size[0], im_mask.size[0]),
+                    max(im_img.size[1], im_mask.size[1]),
+                )
 
-        hi, wi = img.shape[:2]
+                im_img_bg = Image.new("RGB", bg_size, "black")
+                im_img_bg.paste(im_img, (0, 0))
 
+                im_mask_bg = Image.new("L", bg_size, 0)
+                im_mask_bg.paste(im_mask, (0, 0))
+
+                im_img, im_mask = im_img_bg, im_mask_bg
+
+        else:
+            im_mask = None
+
+        hi, wi = im_img.size
         # SET POSITION
         try:
             pos = self.pos(ct)
@@ -638,8 +642,7 @@ class VideoClip(Clip):
             pos[1] = D[pos[1]]
 
         pos = map(int, pos)
-
-        return blit(img, picture, pos, mask=mask, ismask=self.ismask)
+        return blit(im_img, picture, pos, mask=im_mask)
 
     def add_mask(self):
         """Add a mask VideoClip to the VideoClip.
@@ -786,15 +789,6 @@ class VideoClip(Clip):
             self.pos = pos
         else:
             self.pos = lambda t: pos
-
-    @apply_to_mask
-    @outplace
-    def set_layer(self, layer):
-        """Set the clip's layer in compositions. Clips with a greater ``layer``
-        attribute will be displayed on top of others.
-
-        Note: Only has effect when the clip is used in a CompositeVideoClip."""
-        self.layer = layer
 
     # --------------------------------------------------------------
     # CONVERSIONS TO OTHER TYPES
@@ -1265,9 +1259,9 @@ class TextClip(ImageClip):
         self.stroke_color = stroke_color
 
         if remove_temp:
-            if tempfilename is not None and os.path.exists(tempfilename):
+            if os.path.exists(tempfilename):
                 os.remove(tempfilename)
-            if temptxt is not None and os.path.exists(temptxt):
+            if os.path.exists(temptxt):
                 os.remove(temptxt)
 
     @staticmethod
@@ -1343,7 +1337,7 @@ class BitmapClip(VideoClip):
             "B": (0, 0, 255),
             "O": (0, 0, 0),  # "O" represents black
             "W": (255, 255, 255),
-            "A": (89, 225, 62),  # "A", "C", "D", "E", "F" represent arbitrary colors
+            "A": (89, 225, 62),  # "A", "C", "D" and "E" represent arbitrary colors
             "C": (113, 157, 108),
             "D": (215, 182, 143),
             "E": (57, 26, 252),
@@ -1366,7 +1360,6 @@ class BitmapClip(VideoClip):
                 "C": (113, 157, 108),
                 "D": (215, 182, 143),
                 "E": (57, 26, 252),
-                "F": (225, 135, 33),
             }
 
         frame_list = []
