@@ -95,11 +95,8 @@ class Clip:
                 return frame
         else:
             # print(t)
-            try:
-                return self.make_frame(t)
-            except TypeError:
-                return self.make_frame(self, t)
-
+            return self.make_frame(t)
+            
     def fl(self, fun, apply_to=None, keep_duration=True):
         """ General processing of a clip.
 
