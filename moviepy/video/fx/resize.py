@@ -101,7 +101,7 @@ def resize(clip, newsize=None, height=None, width=None, apply_to_mask=True):
             # The resizing is a function of time
 
             def newsize2(t):
-                return trans_newsize(newsize(t))
+                return trans_newsize(newsize(clip, t))
 
             if clip.ismask:
 
