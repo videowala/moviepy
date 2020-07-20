@@ -662,7 +662,7 @@ class VideoClip(Clip):
             mask = VideoClip(ismask=True, make_frame=make_frame)
             return self.set_mask(mask.set_duration(self.duration))
 
-    def on_color(self, size=None, color=(0, 0, 0), pos=None, col_opacity=None):
+    def on_color(self, size=None, color=(0, 0, 0), pos=None, col_opacity=None, res=None):
         """Place the clip on a colored background.
 
         Returns a clip made of the current clip overlaid on a color
@@ -699,10 +699,10 @@ class VideoClip(Clip):
             colorclip = ColorClip(
                 size, color=color, duration=self.duration
             ).set_opacity(col_opacity)
-            result = CompositeVideoClip([colorclip, self.set_position(pos)])
+            result = CompositeVideoClip([colorclip, self.set_position(pos).resize(res)])
         else:
             result = CompositeVideoClip(
-                [self.set_position(pos)], size=size, bg_color=color
+                [self.set_position(pos).resize(res)], size=size, bg_color=color
             )
 
         if (
