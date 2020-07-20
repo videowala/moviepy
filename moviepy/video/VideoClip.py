@@ -694,15 +694,19 @@ class VideoClip(Clip):
         if pos is None:
             pos = "center"
         colorclip = ColorClip(size, color=color)
-
+        
+        mediaclip = self.set_position(pos)
+        if res:
+            mediaclip = mediaclip.resize(res)
+            
         if col_opacity is not None:
             colorclip = ColorClip(
                 size, color=color, duration=self.duration
             ).set_opacity(col_opacity)
-            result = CompositeVideoClip([colorclip, self.set_position(pos).resize(res)])
+            result = CompositeVideoClip([colorclip, mediaclip])
         else:
             result = CompositeVideoClip(
-                [self.set_position(pos).resize(res)], size=size, bg_color=color
+                [mediaclip], size=size, bg_color=color
             )
 
         if (
