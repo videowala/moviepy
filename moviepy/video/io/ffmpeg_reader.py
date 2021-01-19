@@ -32,7 +32,10 @@ class FFMPEG_VideoReader:
         self.filename = filename
         self.proc = None
         infos = ffmpeg_parse_infos(filename, print_infos, check_duration, fps_source)
-        self.fps = infos["video_fps"]
+        try:
+            self.fps = infos["video_fps"]
+        except:
+            self.fps = 24
         self.size = infos["video_size"]
         self.rotation = infos["video_rotation"]
 
