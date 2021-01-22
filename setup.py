@@ -70,7 +70,8 @@ exec(open("moviepy/version.py").read())  # loads __version__
 requires = [
     "decorator>=4.0.2,<5.0",
     "imageio>=2.5,<3.0",
-    "imageio_ffmpeg>=0.2.0",
+    #"imageio_ffmpeg>=0.2.0",
+    "imageio_ffmpeg @ git+https://github.com/videowala/imageio-ffmpeg.git@master#egg=imageio_ffmpeg"
     "numpy>=1.17.3",
     "requests>=2.8.1,<3.0",
     "proglog<=1.0.0",
